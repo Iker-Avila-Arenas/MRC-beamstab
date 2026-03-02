@@ -282,6 +282,119 @@ class ProtocolDecoder:
             #     self.send_command('CLS') # change for function to check whether CLS was successful
             #     break
 
+    ##### Stage 2 reference positioning and stabilization #####
+
+    def set_reference_position(self, offset_x: int, offset_y: int, stage: int = 2) -> dict:
+        """Set a reference target position on the detector for stage 2 by applying
+        X and Y offsets via the SAIsao command.
+
+        The offset shifts the closed-loop stabilization target away from the detector
+        centre (0mV). Positive and negative values are both valid.
+
+        Parameters
+        ----------
+        offset_x : int
+            Target offset on the x-axis in mV (-5000 – +5000).
+        offset_y : int
+            Target offset on the y-axis in mV (-5000 – +5000).
+        stage : int
+            Stage number (default 2). Must be 1 or 2; 3 is only valid for
+            trigger commands and is therefore rejected here.
+
+        Returns
+        -------
+        dict
+            {'x': decoded SAIsao response, 'y': decoded SAIsao response}
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2, or if offsets are outside ±5000 mV.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+        if not (-5000 <= offset_x <= 5000):
+            raise ValueError(f'offset_x must be between -5000 and +5000 mV, got {offset_x}')
+        if not (-5000 <= offset_y <= 5000):
+            raise ValueError(f'offset_y must be between -5000 and +5000 mV, got {offset_y}')
+
+        results = {}
+        for axis_char, offset in (('x', offset_x), ('y', offset_y)):
+            axis_key = 'x'  # label for result dict
+
+            command = 'SAIsao'
+            param_fields = ['s', 'a', 'o']
+            fmt = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+
+            # axis encoded as ASCII byte value: x = 0x78, y = 0x79
+            axis_byte = ord(axis_char)
+            params = struct.pack(fmt, stage, axis_byte, offset)
+            self.send_command('SAI', params)
+
+            response_fields = self.command_response_map[command]
+            response_fmt    = self.get_formatter_str(response_fields)
+            length          = struct.calcsize(response_fmt)
+            raw_reply       = self.receive(length)
+
+            if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+                results[axis_char] = self.decode_response(raw_reply, command)
+
+        return results
+
+    def enable_stabilization(self, stage: int = 2) -> dict:
+        """Enable closed-loop stabilization on the given stage via SEAs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to enable (default 2).
+
+        Returns
+        -------
+        dict
+            Decoded SEAs response.
+        """
+        command = 'SEAs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('SEA', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
+    def disable_stabilization(self, stage: int = 2) -> dict:
+        """Disable closed-loop stabilization on the given stage via CEAs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to disable (default 2).
+
+        Returns
+        -------
+        dict
+            Decoded CEAs response.
+        """
+        command = 'CEAs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('CEA', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
     def debug_message_stream(self):
         m = 5
         r = 1
