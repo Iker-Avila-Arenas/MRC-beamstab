@@ -119,7 +119,7 @@ class ProtocolDecoder:
         raw_reply -- raw response of the controller (bytes)
         """
         if b'\x00;' in raw_reply:
-            print('Command acknowledged')
+            #print('Command acknowledged')
             return True
         elif b'\x01;' in raw_reply:
             print('Error occurred')
@@ -219,34 +219,24 @@ class ProtocolDecoder:
         raw_reply = self.receive(length)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
-    
-    def get_GDS(self):
-        """Get Drive Actuators
         
-        Send the GDA command to the controller to retrieve the current drive 
-        actuator values for both stages and return the decoded response.
-        
-        return dict of:
-            fe (error flag),
-            semi_fe,
-            dx1, dy1, (Stage 1 x and y drive values)
-            dx2, dy2, (Stage 2 x and y drive values)
-            semi_end
+    def get_GDA(self):
+        """Get Drive Actuator values.
+
+        Send the GDA command to the controller to read the current piezo
+        actuator drive voltages for all axes and return the decoded response.
+
+        return dict of
+            dx1, dy1  -- Stage-1 actuator drive values (-5000mV – +5000mV)
+            dx2, dy2  -- Stage-2 actuator drive values (-5000mV – +5000mV)
         """
         command = 'GDA'
-        # 1. Send the command string to the device
         self.send_command(command)
-        
-        # 2. Calculate the expected response length based on defs.py
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
-        
-        # 3. Receive the exact number of bytes
         raw_reply = self.receive(length)
-        
-        # 4. Validate acknowledgement and end-marker, then decode
-        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+        if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command)
 
     def get_error(self):
@@ -291,7 +281,6 @@ class ProtocolDecoder:
             # if (time.time() - start_time >= duration):
             #     self.send_command('CLS') # change for function to check whether CLS was successful
             #     break
-
 
     def debug_message_stream(self):
         m = 5
