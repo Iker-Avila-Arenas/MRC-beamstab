@@ -219,7 +219,36 @@ class ProtocolDecoder:
         raw_reply = self.receive(length)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
+    
+    def get_gda(self):
+        """Get Drive Actuators
         
+        Send the GDA command to the controller to retrieve the current drive 
+        actuator values for both stages and return the decoded response.
+        
+        return dict of:
+            fe (error flag),
+            semi_fe,
+            dx1, dy1, (Stage 1 x and y drive values)
+            dx2, dy2, (Stage 2 x and y drive values)
+            semi_end
+        """
+        command = 'GDA'
+        # 1. Send the command string to the device
+        self.send_command(command)
+        
+        # 2. Calculate the expected response length based on defs.py
+        fields = self.command_response_map[command]
+        fmt = self.get_formatter_str(fields)
+        length = struct.calcsize(fmt)
+        
+        # 3. Receive the exact number of bytes
+        raw_reply = self.receive(length)
+        
+        # 4. Validate acknowledgement and end-marker, then decode
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
     def get_error(self):
         command = 'GER'
         self.send_command(command)
