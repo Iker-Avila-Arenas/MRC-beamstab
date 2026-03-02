@@ -220,7 +220,7 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
     
-    def get_gda(self):
+    def get_GDS(self):
         """Get Drive Actuators
         
         Send the GDA command to the controller to retrieve the current drive 
