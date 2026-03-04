@@ -412,3 +412,77 @@ class ProtocolDecoder:
                 break
         self.send_command('CLS')
         print(l)
+
+    def set_p_factor(self, stage: int, p: int) -> dict:
+        """Set the P-factor of the control loop via SPFsp.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to set P-factor for (1 or 2).
+        p : int
+            P-factor value in mV (0 – 5000).
+
+        Returns
+        -------
+        dict
+            Decoded SPFsp response.
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2, or if p is outside 0–5000 mV.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+        if not (0 <= p <= 5000):
+            raise ValueError(f'p must be between 0 and 5000 mV, got {p}')
+
+        command = 'SPFsp'
+        param_fields = ['s', 'p']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage, p)
+        self.send_command('SPF', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
+    def get_p_factor(self, stage: int) -> dict:
+        """Read the current P-factor of the control loop via GPFs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to query (1 or 2).
+
+        Returns
+        -------
+        dict
+            Decoded GPFs response, including 'p' (0–5000 mV).
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+
+        command = 'GPFs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('GPF', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
